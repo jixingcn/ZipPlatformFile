@@ -11,5 +11,9 @@ public class ZipPlatformFile : ModuleRules
 			"CoreUObject",
 			"Engine",
 			});
+
+        PrivateDependencyModuleNames.AddRange(new string[] {
+			"zlib"
+			});
 	}
 }

@@ -31,11 +31,18 @@ public:
     virtual bool CreateDirectory(const TCHAR* Directory) override;
     virtual bool DeleteDirectory(const TCHAR* Directory) override;
     virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override;
-    virtual bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor) override;
-    virtual bool IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor) override;
+    virtual bool IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override;
+    virtual bool IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override;
 
 public:
     virtual bool IsMounted(const TCHAR* Filename) const override;
-    virtual bool Mount(const TCHAR* Filename, const TCHAR* Password) override;
+    virtual bool Mount(const TCHAR* MountPoint, const TCHAR* Filename, const TCHAR* Password = nullptr) override;
     virtual bool Unmount(const TCHAR* Filename) override;
+
+protected:
+    TSharedPtr<class FZipFileHandle> GetZipFileHandle(const TCHAR* Filename, FString& OutZipFilename) const;
+
+private:
+    IPlatformFile* LowerLevelPtr;
+    TMap<FString, TSharedPtr<class FZipFileHandle>> ZipFileHandlePtrs;
 };
