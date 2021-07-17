@@ -5,13 +5,7 @@
 Allow to mount the zip file in memory.
 Reference [PakPlatformFile](https://docs.unrealengine.com/en-US/API/Runtime/PakFile/FPakPlatformFile/Mount/index.html).
 
-The plugin use [zlib](https://z-lib.org/) to mount the zip file.
-
-* You must use **UE4 API about file** when you operate the file.
-* The plugin **only unzip** the file in memory.
-* Support run in blueprint.
-
-## Instruction
+## Blueprint functions
 
 ```cpp
 UCLASS()
@@ -39,6 +33,13 @@ public:
     /// Check the status of a directory in your zip files
     UFUNCTION(BlueprintCallable, Category = "ZipPlatformFile", meta = (WorldContext = "WorldContextObject"))
     static bool DirectoryExists(UObject* WorldContextObject, const FString& Directory);
+    
+    /// Get the status of file or directory
+    static bool GetFileStatData(UObject* WorldContextObject, const FString& FilenameOrDirectory, struct FFileStatData& OutFileStatData);
+    
+    /// Get the creation and access times of file or directory
+    UFUNCTION(BlueprintCallable, Category = "ZipPlatformFile", meta = (WorldContext = "WorldContextObject"))
+    static bool GetTimeStamp(UObject* WorldContextObject, const FString& FilenameOrDirectory, FDateTime& OutCreationTime, FDateTime& OutAccessTimeStamp);
 
     /// Load a file to array from your zip files
     static bool LoadFileToArray(UObject* WorldContextObject, const FString& Filename, TArray<uint8>& Result);
@@ -48,3 +49,8 @@ public:
     static bool LoadFileToString(UObject* WorldContextObject, const FString& Filename, FString& Result);
 };
 ```
+
+## Document
+
+[English](https://jixing.ink/en/posts/new-ue4-plugin-zipplatformfile/)
+[中文](https://jixing.ink/posts/new-ue4-plugin-zipplatformfile/)
