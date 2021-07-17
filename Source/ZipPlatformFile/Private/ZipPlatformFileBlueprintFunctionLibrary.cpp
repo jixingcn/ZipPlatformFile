@@ -69,6 +69,28 @@ bool UZipPlatformFileBlueprintFunctionLibrary::DirectoryExists(UObject* WorldCon
     return FPaths::DirectoryExists(Directory);
 }
 
+bool UZipPlatformFileBlueprintFunctionLibrary::GetFileStatData(UObject* WorldContextObject, const FString& FilenameOrDirectory, FFileStatData& OutFileStatData)
+{
+    IZipPlatformFile* ZipPlatformFilePtr = ZipPlatformFile::GetZipPlatformFile(WorldContextObject);
+    checkSlow(ZipPlatformFilePtr);
+    if (!ZipPlatformFilePtr)
+        return false;
+    if (!ZipPlatformFilePtr->FileExists(*FilenameOrDirectory) && !ZipPlatformFilePtr->DirectoryExists(*FilenameOrDirectory))
+        return false;
+    OutFileStatData = ZipPlatformFilePtr->GetStatData(*FilenameOrDirectory);
+    return true;
+}
+
+bool UZipPlatformFileBlueprintFunctionLibrary::GetTimeStamp(UObject* WorldContextObject, const FString& FilenameOrDirectory, FDateTime& OutCreationTime, FDateTime& OutAccessTimeStamp)
+{
+    FFileStatData FileStatData;
+    if (!UZipPlatformFileBlueprintFunctionLibrary::GetFileStatData(WorldContextObject, FilenameOrDirectory, FileStatData))
+        return false;
+    OutCreationTime = FileStatData.CreationTime;
+    OutAccessTimeStamp = FileStatData.AccessTime;
+    return true;
+}
+
 bool UZipPlatformFileBlueprintFunctionLibrary::LoadFileToArray(UObject* WorldContextObject, const FString& Filename, TArray<uint8>& Result)
 {
     return FFileHelper::LoadFileToArray(Result, *Filename);
@@ -155,19 +177,14 @@ namespace ZipPlatformFile
         ECVF_Cheat);
 
     static FAutoConsoleCommandWithWorldAndArgs CZipPlatformFileGetTimeStampAndStatData(
-        TEXT("ZipPlatformFile.GetTimeStampAndStatData"),
+        TEXT("ZipPlatformFile.GetFileStatData"),
         TEXT(""),
         FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& InArgs, UWorld* InWorld) {
             if (InArgs.Num() < 1)
                 return;
 
-            IZipPlatformFile* ZipPlatformFilePtr = ZipPlatformFile::GetZipPlatformFile(InWorld);
-            checkSlow(ZipPlatformFilePtr);
-            if (!ZipPlatformFilePtr)
-                return;
-            FDateTime FileDateTime = ZipPlatformFilePtr->GetTimeStamp(*InArgs[0]);
-            const FString FileDateTimeStr = FileDateTime.ToString();
-            FFileStatData FileStatData = ZipPlatformFilePtr->GetStatData(*InArgs[0]);
+            FFileStatData FileStatData;
+            UZipPlatformFileBlueprintFunctionLibrary::GetFileStatData(InWorld, *InArgs[0], FileStatData);
             }),
         ECVF_Cheat);
 }

@@ -43,7 +43,7 @@ public:
     int64 FileSize(const TCHAR* Filename) const;
     FDateTime GetTimeStamp(const TCHAR* Filename) const;
     IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite = false);
-    FFileStatData GetStatData(const TCHAR* FilenameOrDirectory);
+    FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) const;
     bool IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor);
     bool IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor);
 
@@ -61,4 +61,7 @@ private:
         FDateTime GetDateTime() const;
     };
     TMap<FString, FZLibFileInfo> ZLibFileInfoMap;
+
+public:
+    static FString FormatAsDirectoryPath(const TCHAR* Filename);
 };

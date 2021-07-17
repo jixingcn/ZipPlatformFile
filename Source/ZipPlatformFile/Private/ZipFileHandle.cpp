@@ -247,12 +247,8 @@ bool FZipFileHandle::FileExists(const TCHAR* Filename) const
 
 bool FZipFileHandle::DirectoryExists(const TCHAR* Directory) const
 {
-    FString TheDirectory = Directory;
-    TheDirectory.ReplaceCharInline('\\', '/', ESearchCase::CaseSensitive);
-    if (!TheDirectory.EndsWith(TEXT("/")))
-        TheDirectory.Append(TEXT("/"));
-
-    return ZLibFileInfoMap.Contains(Directory);
+    const FString TheDirectory = FZipFileHandle::FormatAsDirectoryPath(Directory);
+    return ZLibFileInfoMap.Contains(TheDirectory);
 }
 
 int64 FZipFileHandle::FileSize(const TCHAR* Filename) const
@@ -263,8 +259,7 @@ int64 FZipFileHandle::FileSize(const TCHAR* Filename) const
 
 FDateTime FZipFileHandle::GetTimeStamp(const TCHAR* Filename) const
 {
-    const FZLibFileInfo* ZLibFileInfoPtr = ZLibFileInfoMap.Find(Filename);
-    return ZLibFileInfoPtr ? ZLibFileInfoPtr->GetDateTime() : FDateTime::MinValue();
+    return GetStatData(Filename).CreationTime;
 }
 
 IFileHandle* FZipFileHandle::OpenRead(const TCHAR* Filename, bool bAllowWrite /*= false*/)
@@ -292,9 +287,15 @@ IFileHandle* FZipFileHandle::OpenRead(const TCHAR* Filename, bool bAllowWrite /*
     return OpenFileHandlePtr;
 }
 
-FFileStatData FZipFileHandle::GetStatData(const TCHAR* FilenameOrDirectory)
+FFileStatData FZipFileHandle::GetStatData(const TCHAR* FilenameOrDirectory) const
 {
     const FZLibFileInfo* ZLibFileInfoPtr = ZLibFileInfoMap.Find(FilenameOrDirectory);
+    if (!ZLibFileInfoPtr)
+    {
+        /// try find as a directory
+        const FString TheDirectory = FZipFileHandle::FormatAsDirectoryPath(FilenameOrDirectory);
+        ZLibFileInfoPtr = ZLibFileInfoMap.Find(TheDirectory);
+    }
     if (!ZLibFileInfoPtr)
         return FFileStatData();
 
@@ -324,4 +325,13 @@ FDateTime FZipFileHandle::FZLibFileInfo::GetDateTime() const
         (int32)Info.tmu_date.tm_min,
         (int32)Info.tmu_date.tm_sec
     );
+}
+
+FString FZipFileHandle::FormatAsDirectoryPath(const TCHAR* Filename)
+{
+    FString TheDirectory = Filename;
+    TheDirectory.ReplaceCharInline('\\', '/', ESearchCase::CaseSensitive);
+    if (!TheDirectory.EndsWith(TEXT("/")))
+        TheDirectory.Append(TEXT("/"));
+    return TheDirectory;
 }
