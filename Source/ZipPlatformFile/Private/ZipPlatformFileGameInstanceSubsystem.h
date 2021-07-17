@@ -17,6 +17,12 @@ public:
     virtual void Initialize(FSubsystemCollectionBase& Collection) override;
     virtual void Deinitialize() override;
 
+public:
+    FORCEINLINE IZipPlatformFile* GetZipPlatformFile() const
+    {
+        return ZipPlatformFilePtr.Get();
+    }
+
 private:
     TUniquePtr<IZipPlatformFile> ZipPlatformFilePtr;
 };
