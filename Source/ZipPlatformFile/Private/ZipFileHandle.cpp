@@ -208,6 +208,9 @@ FZipFileHandle::FZipFileHandle(IPlatformFile* PlatformFilePtr, const TCHAR* Moun
             break;
 
         const FString ZLibFilename = UTF8_TO_TCHAR(&ZLibFilenameTemp[0]);
+        if (!FZipFileHandle::GetParentDir(ZLibFileInfo.ParentDir, ZLibFilename))
+            continue;
+
         ZLibFileInfo.IsDirectory = ZLibFilename.EndsWith(TEXT("/"));
         ZLibFileInfoMap.Add(ZLibFilename, ZLibFileInfo);
 
@@ -240,6 +243,16 @@ bool FZipFileHandle::GetFilename(const TCHAR* Filename, FString& OutFilename) co
     return true;
 }
 
+bool FZipFileHandle::GetRelativePath(const TCHAR *Directory, FString &OutRelativePath) const
+{
+    const FString InputDirectory = Directory;
+    if (InputDirectory.IsEmpty() || !InputDirectory.StartsWith(TheMountPoint))
+        return false;
+
+    OutRelativePath = InputDirectory.Mid(TheMountPoint.Len());
+    return true;
+}
+
 bool FZipFileHandle::FileExists(const TCHAR* Filename) const
 {
     return ZLibFileInfoMap.Contains(Filename);
@@ -248,6 +261,8 @@ bool FZipFileHandle::FileExists(const TCHAR* Filename) const
 bool FZipFileHandle::DirectoryExists(const TCHAR* Directory) const
 {
     const FString TheDirectory = FZipFileHandle::FormatAsDirectoryPath(Directory);
+    if (TheDirectory.IsEmpty())
+        return true;
     return ZLibFileInfoMap.Contains(TheDirectory);
 }
 
@@ -278,10 +293,13 @@ IFileHandle* FZipFileHandle::OpenRead(const TCHAR* Filename, bool bAllowWrite /*
 
     FFileHandle* OpenFileHandlePtr = new FFileHandle();
     OpenFileHandlePtr->UncompressedData.SetNumUninitialized((int64)ZLibFileInfoPtr->Info.uncompressed_size);
-    if (unzReadCurrentFile(ZLibHandle, &OpenFileHandlePtr->UncompressedData[0], ZLibFileInfoPtr->Info.uncompressed_size) != ZLibFileInfoPtr->Info.uncompressed_size)
+    if (OpenFileHandlePtr->UncompressedData.Num() > 0)
     {
-        delete OpenFileHandlePtr;
-        OpenFileHandlePtr = nullptr;
+        if (unzReadCurrentFile(ZLibHandle, &OpenFileHandlePtr->UncompressedData[0], ZLibFileInfoPtr->Info.uncompressed_size) != ZLibFileInfoPtr->Info.uncompressed_size)
+        {
+            delete OpenFileHandlePtr;
+            OpenFileHandlePtr = nullptr;
+        }
     }
     unzCloseCurrentFile(ZLibHandle);
     return OpenFileHandlePtr;
@@ -303,16 +321,61 @@ FFileStatData FZipFileHandle::GetStatData(const TCHAR* FilenameOrDirectory) cons
     return FFileStatData(FileDateTime, FileDateTime, FileDateTime, (int64)ZLibFileInfoPtr->Info.uncompressed_size, ZLibFileInfoPtr->IsDirectory, true);
 }
 
+void FZipFileHandle::FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension, bool bRecursive) const
+{
+    const FString TargetDirectory = Directory;
+    const FString TargetFileExtension = FileExtension;
+    for (const TPair<FString, FZLibFileInfo>& ZLibFileInfo : ZLibFileInfoMap)
+    {
+        if (ZLibFileInfo.Value.IsDirectory)
+            continue;
+
+        /// check the directory
+        if (!bRecursive)
+            if (!ZLibFileInfo.Value.ParentDir.Equals(TargetDirectory))
+                continue;
+        else if (!TargetDirectory.IsEmpty() && !ZLibFileInfo.Key.StartsWith(TargetDirectory))
+            continue;
+
+        /// check the extension
+        if (!TargetFileExtension.IsEmpty() && !ZLibFileInfo.Key.EndsWith(TargetFileExtension))
+            continue;
+
+        FoundFiles.Add(TheMountPoint / ZLibFileInfo.Key);
+    }
+}
+
 bool FZipFileHandle::IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor)
 {
-    //TODO:
-    return false;
+    const FString TargetDirectory = Directory;
+    for (const TPair<FString, FZLibFileInfo>& ZLibFileInfo : ZLibFileInfoMap)
+    {
+        if (TargetDirectory.IsEmpty() || ZLibFileInfo.Key.StartsWith(TargetDirectory))
+            Visitor.Visit(*ZLibFileInfo.Key, ZLibFileInfo.Value.IsDirectory);
+    }
+    return true;
 }
 
 bool FZipFileHandle::IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor)
 {
-    //TODO:
-    return false;
+    const FString TargetDirectory = Directory;
+    FFileStatData FileStatData;
+    for (const TPair<FString, FZLibFileInfo>& ZLibFileInfo : ZLibFileInfoMap)
+    {
+        if (TargetDirectory.IsEmpty() || ZLibFileInfo.Key.StartsWith(TargetDirectory))
+        {
+            const FZLibFileInfo& ZLibFileInfoValue = ZLibFileInfo.Value;
+            FileStatData.CreationTime = ZLibFileInfoValue.GetDateTime();
+            FileStatData.AccessTime = FileStatData.CreationTime;
+            FileStatData.ModificationTime = FileStatData.CreationTime;
+            FileStatData.FileSize = ZLibFileInfoValue.Info.uncompressed_size;
+            FileStatData.bIsDirectory = ZLibFileInfoValue.IsDirectory;
+            FileStatData.bIsReadOnly = true;
+            FileStatData.bIsValid = true;
+            Visitor.Visit(*ZLibFileInfo.Key, FileStatData);
+        }
+    }
+    return true;
 }
 
 FDateTime FZipFileHandle::FZLibFileInfo::GetDateTime() const
@@ -327,11 +390,31 @@ FDateTime FZipFileHandle::FZLibFileInfo::GetDateTime() const
     );
 }
 
+bool FZipFileHandle::GetParentDir(FString& ParentDir, FString FilenameOrDirectory)
+{
+    if (FilenameOrDirectory.IsEmpty())
+        return false;
+    if (FilenameOrDirectory[FilenameOrDirectory.Len() - 1] == '/')
+        FilenameOrDirectory.RemoveAt(FilenameOrDirectory.Len() - 1);
+    if (FilenameOrDirectory.IsEmpty())
+        return false;
+
+    int32 LastBackSlant = INDEX_NONE;
+    if (!FilenameOrDirectory.FindLastChar('/', LastBackSlant))
+        ParentDir = TEXT("");
+    else
+        ParentDir = FilenameOrDirectory.Mid(0, LastBackSlant + 1);
+    return true;
+}
+
 FString FZipFileHandle::FormatAsDirectoryPath(const TCHAR* Filename)
 {
     FString TheDirectory = Filename;
-    TheDirectory.ReplaceCharInline('\\', '/', ESearchCase::CaseSensitive);
-    if (!TheDirectory.EndsWith(TEXT("/")))
-        TheDirectory.Append(TEXT("/"));
+    if (!TheDirectory.IsEmpty())
+    {
+        TheDirectory.ReplaceCharInline('\\', '/', ESearchCase::CaseSensitive);
+        if (!TheDirectory.EndsWith(TEXT("/")))
+            TheDirectory.Append(TEXT("/"));
+    }
     return TheDirectory;
 }

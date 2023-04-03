@@ -33,9 +33,11 @@ public:
     virtual ~FZipFileHandle();
 
 public:
+    FORCEINLINE const FString& GetMountPoint() { return TheMountPoint; }
     FORCEINLINE const FString& GetFilename() { return TheFilename; }
     FORCEINLINE bool IsValid() const { return (ZLibHandle != 0); }
     bool GetFilename(const TCHAR* Filename, FString& OutFilename) const;
+    bool GetRelativePath(const TCHAR* Directory, FString& OutRelativePath) const;
 
 public:
     bool FileExists(const TCHAR* Filename) const;
@@ -44,6 +46,7 @@ public:
     FDateTime GetTimeStamp(const TCHAR* Filename) const;
     IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite = false);
     FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) const;
+    void FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension, bool bRecursive) const;
     bool IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor);
     bool IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor);
 
@@ -57,11 +60,13 @@ private:
     {
         unz_file_info Info;
         unz_file_pos Pos;
+        FString ParentDir;
         bool IsDirectory;
         FDateTime GetDateTime() const;
     };
     TMap<FString, FZLibFileInfo> ZLibFileInfoMap;
 
 public:
+    static bool GetParentDir(FString& ParentDir, FString FilenameOrDirectory);
     static FString FormatAsDirectoryPath(const TCHAR* Filename);
 };

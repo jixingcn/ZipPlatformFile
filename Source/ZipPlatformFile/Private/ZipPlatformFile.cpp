@@ -186,6 +186,20 @@ FFileStatData FZipPlatformFile::GetStatData(const TCHAR* FilenameOrDirectory)
     return (LowerLevelPtr ? LowerLevelPtr->GetStatData(FilenameOrDirectory) : FFileStatData());
 }
 
+void FZipPlatformFile::FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension)
+{
+    if (LowerLevelPtr->DirectoryExists(Directory))
+        LowerLevelPtr->FindFiles(FoundFiles, Directory, FileExtension);
+    FindFilesInternal(FoundFiles, Directory, FileExtension, false);
+}
+
+void FZipPlatformFile::FindFilesRecursively(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension)
+{
+    if (LowerLevelPtr->DirectoryExists(Directory))
+        LowerLevelPtr->FindFilesRecursively(FoundFiles, Directory, FileExtension);
+    FindFilesInternal(FoundFiles, Directory, FileExtension, true);
+}
+
 bool FZipPlatformFile::IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor)
 {
     FString ZipFilename;
@@ -249,4 +263,15 @@ TSharedPtr<FZipFileHandle> FZipPlatformFile::GetZipFileHandle(const TCHAR* Filen
         return ZipFileHandlePtr.Value;
     }
     return nullptr;
+}
+
+void FZipPlatformFile::FindFilesInternal(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension, bool bRecursive) const
+{
+    FString ZipFilename;
+    if (TSharedPtr<FZipFileHandle> FoundZipFileHandlePtr = GetZipFileHandle(Directory, ZipFilename))
+    {
+        FString RelativePath;
+        if (FoundZipFileHandlePtr->GetRelativePath(Directory, RelativePath))
+            FoundZipFileHandlePtr->FindFiles(FoundFiles, *RelativePath, FileExtension, bRecursive);
+    }
 }
