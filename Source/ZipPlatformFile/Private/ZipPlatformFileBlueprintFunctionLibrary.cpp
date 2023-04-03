@@ -69,6 +69,64 @@ bool UZipPlatformFileBlueprintFunctionLibrary::DirectoryExists(UObject* WorldCon
     return FPaths::DirectoryExists(Directory);
 }
 
+void UZipPlatformFileBlueprintFunctionLibrary::FindFiles(UObject* WorldContextObject, TArray<FString>& FoundFiles, FString Directory, FString FileExtension, bool bRecursive /*= true*/)
+{
+    IZipPlatformFile* ZipPlatformFilePtr = ZipPlatformFile::GetZipPlatformFile(WorldContextObject);
+    checkSlow(ZipPlatformFilePtr);
+    if (!ZipPlatformFilePtr)
+        return;
+
+    /// format the file extension
+    if (!FileExtension.IsEmpty() && FileExtension[0] != '.')
+        FileExtension.InsertAt(0, '.');
+    
+    /// format the directory
+    if (Directory.IsEmpty() || Directory[Directory.Len() - 1] != '/')
+        Directory.AppendChar('/');
+
+    if (!bRecursive)
+        ZipPlatformFilePtr->FindFiles(FoundFiles, *Directory, *FileExtension);
+    else
+        ZipPlatformFilePtr->FindFilesRecursively(FoundFiles, *Directory, *FileExtension);
+}
+
+void UZipPlatformFileBlueprintFunctionLibrary::FindDirectories(UObject* WorldContextObject, TArray<FString>& FoundDirectories, FString Directory)
+{
+    IZipPlatformFile* ZipPlatformFilePtr = ZipPlatformFile::GetZipPlatformFile(WorldContextObject);
+    checkSlow(ZipPlatformFilePtr);
+    if (!ZipPlatformFilePtr)
+        return;
+
+    class FZipDirectoryVisitor : public IPlatformFile::FDirectoryVisitor
+    {
+    public:
+        FZipDirectoryVisitor(TArray<FString>& FoundDirectories)
+            : IPlatformFile::FDirectoryVisitor()
+            , FoundDirectories(FoundDirectories)
+        {
+            //
+        }
+
+    public:
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+        {
+            if (bIsDirectory)
+                FoundDirectories.Add(FString(FilenameOrDirectory));
+            return true;
+        }
+
+    private:
+        TArray<FString>& FoundDirectories;
+    };
+
+    /// format the directory
+    if (Directory.IsEmpty() || Directory[Directory.Len() - 1] != '/')
+        Directory.AppendChar('/');
+
+    FZipDirectoryVisitor ZipDirectoryVisitor(FoundDirectories);
+    ZipPlatformFilePtr->IterateDirectory(*Directory, ZipDirectoryVisitor);
+}
+
 bool UZipPlatformFileBlueprintFunctionLibrary::GetFileStatData(UObject* WorldContextObject, const FString& FilenameOrDirectory, FFileStatData& OutFileStatData)
 {
     IZipPlatformFile* ZipPlatformFilePtr = ZipPlatformFile::GetZipPlatformFile(WorldContextObject);
@@ -151,6 +209,32 @@ namespace ZipPlatformFile
             if (InArgs.Num() < 1)
                 return;
             UZipPlatformFileBlueprintFunctionLibrary::DirectoryExists(InWorld, InArgs[0]);
+            }),
+        ECVF_Cheat);
+
+    static FAutoConsoleCommandWithWorldAndArgs CZipPlatformFileFindFiles(
+        TEXT("ZipPlatformFile.FindFiles"),
+        TEXT(""),
+        FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& InArgs, UWorld* InWorld) {
+            if (InArgs.Num() < 1)
+                return;
+
+            TArray<FString> FoundDirectories;
+            const FString FileExtension = InArgs.Num() > 1 ? InArgs[1] : TEXT("");
+            const bool bRecursive = InArgs.Num() > 2 ? InArgs[2].Equals(TEXT("true"), ESearchCase::IgnoreCase) : false;
+            UZipPlatformFileBlueprintFunctionLibrary::FindFiles(InWorld, FoundDirectories, *InArgs[0], FileExtension, bRecursive);
+            }),
+        ECVF_Cheat);
+
+    static FAutoConsoleCommandWithWorldAndArgs CZipPlatformFileFindDirectories(
+        TEXT("ZipPlatformFile.FindDirectories"),
+        TEXT(""),
+        FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& InArgs, UWorld* InWorld) {
+            if (InArgs.Num() < 1)
+                return;
+
+            TArray<FString> FoundDirectories;
+            UZipPlatformFileBlueprintFunctionLibrary::FindDirectories(InWorld, FoundDirectories, *InArgs[0]);
             }),
         ECVF_Cheat);
 

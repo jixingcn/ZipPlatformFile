@@ -15,6 +15,10 @@ public:
     virtual const TCHAR* GetName() const override;
 
 public:
+    using IPlatformFile::IterateDirectory;
+    using IPlatformFile::IterateDirectoryRecursively;
+
+public:
     virtual bool FileExists(const TCHAR* Filename) override;
     virtual int64 FileSize(const TCHAR* Filename) override;
     virtual bool DeleteFile(const TCHAR* Filename) override;
@@ -31,6 +35,8 @@ public:
     virtual bool CreateDirectory(const TCHAR* Directory) override;
     virtual bool DeleteDirectory(const TCHAR* Directory) override;
     virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override;
+    virtual void FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension) override;
+    virtual void FindFilesRecursively(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension) override;
     virtual bool IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override;
     virtual bool IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override;
 
@@ -41,6 +47,7 @@ public:
 
 protected:
     TSharedPtr<class FZipFileHandle> GetZipFileHandle(const TCHAR* Filename, FString& OutZipFilename) const;
+    void FindFilesInternal(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension, bool bRecursive) const;
 
 private:
     IPlatformFile* LowerLevelPtr;
