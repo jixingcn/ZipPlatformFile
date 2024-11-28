@@ -13,8 +13,8 @@ The plugin use [zlib](https://z-lib.org/) to mount the zip file.
 
 ## Instruction
 
-* **New UE4 Plugin**: [English](https://jixing.ink/en/posts/new-ue4-plugin-zipplatformfile/) [中文](https://jixing.ink/posts/new-ue4-plugin-zipplatformfile/)
-* **New APIs**: [English](https://jixing.ink/en/posts/new-apis-zipplatformfile/) [中文](https://jixing.ink/posts/new-apis-zipplatformfile/)
+* **New UE4 Plugin**: [English](https://jixing.me/en/posts/new-ue4-plugin-zipplatformfile/) [中文](https://jixing.me/posts/new-ue4-plugin-zipplatformfile/)
+* **New APIs**: [English](https://jixing.me/en/posts/new-apis-zipplatformfile/) [中文](https://jixing.me/posts/new-apis-zipplatformfile/)
 
 ```cpp
 UCLASS()
